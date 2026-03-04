@@ -1,0 +1,147 @@
+<!doctype html>
+<html class="dark" lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OmniPostAI Pipeline Studio</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: '#137fec',
+            'background-light': '#f6f7f8',
+            'background-dark': '#101922',
+          },
+          fontFamily: {
+            display: ['Space Grotesk', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    body { font-family: 'Space Grotesk', sans-serif; }
+    .canvas-grid {
+      background-image: radial-gradient(circle, #1e293b 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    .pipeline-node {
+      position: absolute;
+      width: 240px;
+      border: 2px solid #334155;
+      border-radius: 0.75rem;
+      overflow: hidden;
+      background: rgba(15, 23, 42, 0.94);
+      box-shadow: 0 10px 20px rgba(2, 6, 23, 0.3);
+      cursor: pointer;
+      transition: border-color .15s ease;
+    }
+    .pipeline-node:hover { border-color: #137fec88; }
+    .pipeline-node.active {
+      border-color: #137fec;
+      box-shadow: 0 0 0 4px rgba(19, 127, 236, 0.22);
+    }
+  </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 h-screen overflow-hidden flex flex-col">
+  <header class="h-14 border-b border-primary/20 flex items-center justify-between px-6 bg-slate-50 dark:bg-slate-900/50">
+    <div class="flex items-center gap-4">
+      <div class="flex items-center gap-2 text-primary">
+        <span class="material-symbols-outlined text-2xl">account_tree</span>
+        <h1 class="font-bold text-lg tracking-tight">OmniPostAI <span class="text-slate-500 font-medium">Pipeline Studio</span></h1>
+      </div>
+      <div class="h-6 w-px bg-slate-700/50 mx-2"></div>
+      <div class="flex gap-2">
+        <button id="bootstrap" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors"><span class="material-symbols-outlined text-[18px]">magic_button</span> 샘플 로드</button>
+        <button id="save" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 text-sm font-semibold hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"><span class="material-symbols-outlined text-[18px]">save</span> 저장</button>
+        <button id="load" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 text-sm font-semibold hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"><span class="material-symbols-outlined text-[18px]">folder_open</span> 불러오기</button>
+        <button id="simulate" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-500 transition-colors"><span class="material-symbols-outlined text-[18px]">play_arrow</span> 시뮬레이션 실행</button>
+      </div>
+    </div>
+    <div class="flex items-center gap-4">
+      <div class="flex items-center gap-2 px-3 py-1 rounded bg-slate-100 dark:bg-slate-800 border border-slate-700/50">
+        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+        <span id="status" class="text-xs font-mono text-slate-400">상태: 준비 완료</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 flex overflow-hidden">
+    <div id="canvasWrap" class="flex-1 relative overflow-auto canvas-grid bg-background-light dark:bg-background-dark">
+      <div id="canvas" class="relative min-w-[1400px] min-h-[900px] p-8">
+        <svg id="edges" class="absolute inset-0 pointer-events-none w-full h-full"></svg>
+      </div>
+      <div class="absolute bottom-6 left-6 flex flex-col gap-2">
+        <button class="size-10 flex items-center justify-center bg-slate-50 dark:bg-slate-900 border border-slate-700 rounded-lg shadow-lg"><span class="material-symbols-outlined">add</span></button>
+        <button class="size-10 flex items-center justify-center bg-slate-50 dark:bg-slate-900 border border-slate-700 rounded-lg shadow-lg"><span class="material-symbols-outlined">remove</span></button>
+        <button class="size-10 flex items-center justify-center bg-slate-50 dark:bg-slate-900 border border-slate-700 rounded-lg shadow-lg"><span class="material-symbols-outlined">center_focus_weak</span></button>
+      </div>
+    </div>
+
+    <aside id="panel" class="w-80 border-l border-primary/20 bg-slate-50 dark:bg-slate-900 overflow-y-auto">
+      <div class="p-4 border-b border-slate-700 flex justify-between items-center">
+        <h2 class="font-bold text-sm tracking-widest uppercase text-slate-400">노드 속성</h2>
+      </div>
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Node ID</label>
+          <input id="nodeId" class="w-full bg-slate-100 dark:bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm text-slate-400 font-mono" readonly />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase mb-2">라벨</label>
+          <input id="label" class="w-full bg-background-light dark:bg-background-dark border border-slate-700 rounded px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none" type="text" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Agent</label>
+          <input id="agent" class="w-full bg-background-light dark:bg-background-dark border border-slate-700 rounded px-3 py-2 text-sm outline-none" type="text" />
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-500 uppercase mb-2">실패확률</label>
+            <input id="failureRate" class="w-full bg-background-light dark:bg-background-dark border border-slate-700 rounded px-3 py-2 text-sm outline-none" type="number" min="0" max="1" step="0.01" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-500 uppercase mb-2">지연(ms)</label>
+            <input id="latency" class="w-full bg-background-light dark:bg-background-dark border border-slate-700 rounded px-3 py-2 text-sm outline-none" type="number" min="0" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase mb-2">비용</label>
+          <input id="cost" class="w-full bg-background-light dark:bg-background-dark border border-slate-700 rounded px-3 py-2 text-sm outline-none" type="number" min="0" step="0.0001" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase mb-2">설명</label>
+          <textarea id="description" class="w-full h-24 bg-background-light dark:bg-background-dark border border-slate-700 rounded px-3 py-2 text-sm outline-none resize-none"></textarea>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="h-64 border-t border-primary/20 bg-slate-50 dark:bg-slate-900 flex">
+    <div class="flex-1 flex flex-col border-r border-slate-700/50">
+      <div class="px-4 py-2 bg-slate-100 dark:bg-slate-800/50 flex items-center gap-2">
+        <span class="material-symbols-outlined text-sm text-slate-400">terminal</span>
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">실행 로그</h3>
+      </div>
+      <div id="logList" class="flex-1 p-4 font-mono text-[11px] overflow-y-auto space-y-1 text-slate-300"></div>
+    </div>
+    <div class="w-96 flex flex-col">
+      <div class="px-4 py-2 bg-slate-100 dark:bg-slate-800/50 flex items-center gap-2">
+        <span class="material-symbols-outlined text-sm text-slate-400">analytics</span>
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">파이프라인 분석</h3>
+      </div>
+      <div id="costSummary" class="flex-1 p-6 text-sm text-slate-300"></div>
+    </div>
+  </footer>
+
+  <script type="module" src="/ui/app.js"></script>
+</body>
+</html>

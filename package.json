@@ -1,0 +1,12 @@
+{
+  "name": "omnipostai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "simulate": "node src/demo.js",
+    "pipeline": "node src/cli/pipeline-cli.js",
+    "api": "node src/api/run-server.js"
+  }
+}
