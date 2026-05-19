@@ -1,136 +1,213 @@
 # OmniPost AI
 
-멀티 SNS 동시 발행을 위한 에이전트 오케스트레이션 프로젝트입니다.
+OmniPost AI는 하나의 원본 콘텐츠를 여러 SNS 채널에 맞게 변환하고, 발행 파이프라인을 시각적으로 관리하기 위한 AI 에이전트 오케스트레이션 프로젝트입니다.
 
-## 현재 개발 진행 체크
-- 전체 Task 보드: `docs/TASKS.md`
-- 기획/사양 문서: `docs/omnipostai_prd_plan_ko.md`
+현재 구현은 실제 SNS API 연동 전 단계의 **파이프라인 엔진 + 시뮬레이션 + 운영 UI MVP**입니다. X, Threads, Instagram, Facebook, YouTube Community 같은 플랫폼 에이전트를 붙이기 전에, “어떤 에이전트가 어떤 순서로 콘텐츠를 처리하고 실패를 어떻게 복구할지”를 검증하는 기반을 만들고 있습니다.
 
-## 이번 단계까지 구현된 기능
+## 만들고 있는 것
+
+목표는 크리에이터나 마케터가 한 번 작성한 콘텐츠를 여러 플랫폼에 맞게 자동 변환하고 발행하도록 돕는 도구입니다.
+
+예상 흐름:
+
+1. 사용자가 원본 글, 이미지, 링크, 해시태그, 목표를 입력합니다.
+2. Manager Agent가 작업을 나눕니다.
+3. Formatter, Media, Compliance Agent가 플랫폼별 문구와 미디어를 조정합니다.
+4. Platform Agent가 X, Threads, Instagram 등 각 채널 발행을 담당합니다.
+5. 실패한 작업은 재시도하거나 fallback 경로로 보냅니다.
+6. 결과는 성공/실패/비용/지연/실패 사유 리포트로 정리됩니다.
+
+## 현재 구현된 범위
+
+### 코어 엔진
+
 - 파이프라인 노드/엣지 스키마
-- DAG(topological sort) 검증 유틸리티
-- 파이프라인 정적 검증기(노드/엣지/중복/onFail/사이클)
-- 실패율/메트릭/로그를 포함한 시뮬레이션 엔진
-- 실패 원인 분류 및 코드(errorCode) 기록
-- 실행 결과 Markdown 리포트 생성기
-- 파일 기반 파이프라인 저장소(CRUD)
-- 파일 기반 실행 이력 저장소(Run History)
-- 서비스 계층(bootstrap/list/save/run/delete + run history 기록)
-- 템플릿 기반 파이프라인 생성 및 저장
-- CLI 기반 실행 관리 (`npm run pipeline -- <command>`)
-- HTTP API 서버(`/pipelines`, `/pipelines/:id/run`, `/runs`, `/templates`)
-- 브라우저 기반 그래프 UI(`/ui`) 제공(캔버스/속성 패널/로그/비용/localStorage)
-- 실행 이력 통계 API/CLI (`/runs/stats`, `run-stats`)
-- 실패 원인별 집계 통계(`failureReasons`)
-- 재시도/백오프 시뮬레이션 및 총 재시도 통계(`totalRetries`)
-- 전체 개발 진행률 계산(`progress` / `/progress`)
-- 통합 대시보드 조회(`dashboard` / `/dashboard`)
-- 다음 우선 작업 추천(`next-tasks` / `/next-tasks`)
-- 파이프라인 구조 인사이트 조회(`insights` / `/pipelines/:id/insights`)
-- 파이프라인 버전/구조 비교(`compare` / `/pipelines/compare`)
-- 실행 프로파일 기반 시뮬레이션(`run-profiles`, `run <id> [profile]`)
-- 실행 전 예상치 조회(`estimate` / `/pipelines/:id/estimate`)
-- 프로파일 매트릭스 비교(`profile-matrix` / `/pipelines/:id/profile-matrix`)
-- 목표 기반 프로파일 추천 + 근거/트레이드오프(`recommend-profile` / `/pipelines/:id/recommend-profile`)
-- 추천 objective 목록 조회(`recommend-objectives` / `/recommend-objectives`)
-- objective 전체 추천 매트릭스 조회(`recommendation-matrix` / `/pipelines/:id/recommendation-matrix`)
-- 추천 결과 스냅샷 요약(`recommendation-snapshot` / `/pipelines/:id/recommendation-snapshot`)
-- objective 공통 합의 프로파일 조회(동률 감지 + tie-breaker 포함) (`recommendation-consensus` / `/pipelines/:id/recommendation-consensus`)
-- 합의 결정 로그(투표/우선순위 추적) 조회(`recommendation-decision-log` / `/pipelines/:id/recommendation-decision-log`)
-- 추천 결과 감사(audit) 번들 조회(`recommendation-audit` / `/pipelines/:id/recommendation-audit`)
-- 추천 감사 요약(핵심 지표) 조회(`recommendation-audit-summary` / `/pipelines/:id/recommendation-audit-summary`)
-- 추천 감사 상태(OK/WARN/ERROR) 조회(`recommendation-audit-status` / `/pipelines/:id/recommendation-audit-status`)
-- 전체 파이프라인 감사 상태 집계 조회(`recommendation-audit-status-overview` / `/pipelines/recommendation-audit-status-overview`)
-- 감사 이슈 유형별 집계 조회(`recommendation-audit-issues` / `/pipelines/recommendation-audit-issues`)
-- 감사 이슈 우선순위 hotspot 조회(`recommendation-audit-hotspots` / `/pipelines/recommendation-audit-hotspots`)
-- 감사 이슈 상위 N개 hotspot 조회(`recommendation-audit-top-hotspots` / `/pipelines/recommendation-audit-top-hotspots?limit=3&minImpactScore=1&includeIssues=tie-detected`)
-  - 응답에 `includeIssues`, `normalizedIncludeIssues`, `requestedIncludeIssuesCount`, `uniqueIncludeIssuesCount`, `duplicateIncludeIssuesCount`, `includeIssuesAppliedRatePercent`, `includeIssuesIgnoredRatePercent`, `includeIssuesKnownCoveragePercent`, `appliedIncludeIssues`, `ignoredIncludeIssues`, `knownIssues`, `totalHotspots`, `impactFilteredCount`, `excludedByImpactFilterCount`, `filteredHotspotCount`, `excludedByIssueFilterCount`, `filteredOutCount`, `impactedPipelines`, `impactedPipelineCount`, `impactedCoveragePercent` 포함
+- DAG 위상 정렬과 사이클 검증
+- 정적 검증기: 중복 ID, 끊어진 엣지, fallback 경로, 비활성 노드, onFail 검증
+- 실행 시뮬레이터: 상태 전이, 실패율, 재시도, 백오프, 로그, 메트릭 계산
+- Markdown 실행 리포트 생성
 
+### 운영 계층
 
-## 테스트 가이드
-- 전체 자동 테스트: `npm test`
-- 테스트 파일 구성
-  - `tests/pipeline.test.js`: topology/validator/simulator/report 단위 테스트
-  - `tests/pipeline.service.test.js`: repository/service/recommendation-audit 계층 테스트
-  - `tests/pipeline.api.test.js`: API lifecycle + recommendation endpoint 통합 테스트
-  - `tests/task.progress.test.js`: `docs/TASKS.md` 진행률/우선순위 파싱 테스트
-- 권장 스모크 체크(문서/CLI 동기화 확인)
-  - `npm run pipeline -- bootstrap`
-  - `npm run pipeline -- recommendation-audit-top-hotspots 5 0 NON-EXISTENT-ISSUE,non-existent-issue`
-  - `npm run pipeline -- progress`
+- 파일 기반 파이프라인 저장소
+- 파일 기반 실행 이력 저장소
+- 템플릿 기반 파이프라인 생성
+- 실행 이력 통계와 실패 원인 집계
+- 전체 작업 진행률 계산
+- 다음 작업 추천
+- 통합 대시보드 응답
 
-## 실행
+### 추천/감사 기능
+
+- 실행 프로파일: `default`, `fast`, `resilient`
+- 실행 전 예상치 계산
+- 프로파일 매트릭스 비교
+- 목표 기반 프로파일 추천
+- 추천 근거, 트레이드오프, 합의 프로파일, 결정 로그
+- 추천 결과 감사 번들
+- 감사 상태, 이슈 집계, 우선순위 hotspot, 상위 hotspot 조회
+
+### 인터페이스
+
+- CLI: `npm run pipeline -- <command>`
+- HTTP API: `/pipelines`, `/runs`, `/templates`, `/dashboard`, `/progress` 등
+- 브라우저 UI: `/ui`
+  - 그래프 캔버스
+  - 속성 패널
+  - 실행 로그
+  - 비용/지연 메트릭
+  - localStorage 저장/복원
+
+## 프로젝트 구조
+
+```text
+.
+├─ docs/
+│  ├─ TASKS.md                     # 전체 작업 보드
+│  └─ omnipostai_prd_plan_ko.md    # 기획/사양/로드맵
+├─ src/
+│  ├─ api/                         # HTTP API 서버
+│  ├─ cli/                         # CLI 명령
+│  ├─ pipeline/                    # 스키마, 검증, 시뮬레이션, 리포트
+│  ├─ services/                    # 저장소와 서비스 계층
+│  └─ ui/                          # 브라우저 그래프 UI
+├─ tests/                          # node:test 기반 자동 테스트
+├─ setup_env.js                    # 실행 산출물 폴더 초기화
+└─ package.json
+```
+
+## 실행 방법
+
 ```bash
+npm install
+npm run setup
 npm test
-npm run simulate
+```
+
+API 서버와 UI를 실행하려면:
+
+```bash
+npm run api
+```
+
+브라우저에서 다음 주소를 엽니다.
+
+```text
+http://localhost:3000/ui
+```
+
+## 주요 CLI
+
+```bash
+npm run pipeline -- bootstrap
 npm run pipeline -- template-list
 npm run pipeline -- template-create mvp-x-threads my_pipeline "My Pipeline"
 npm run pipeline -- validate my_pipeline
+npm run pipeline -- run my_pipeline
+npm run pipeline -- run my_pipeline fast
+npm run pipeline -- run my_pipeline resilient
 npm run pipeline -- insights my_pipeline
 npm run pipeline -- estimate my_pipeline resilient
 npm run pipeline -- profile-matrix my_pipeline
 npm run pipeline -- recommend-profile my_pipeline reliability
-npm run pipeline -- compare my_pipeline other_pipeline
-npm run pipeline -- run-profiles
-npm run pipeline -- recommend-objectives
-npm run pipeline -- recommendation-matrix my_pipeline
-npm run pipeline -- recommendation-snapshot my_pipeline
-npm run pipeline -- recommendation-consensus my_pipeline
-npm run pipeline -- recommendation-decision-log my_pipeline
 npm run pipeline -- recommendation-audit my_pipeline
-npm run pipeline -- recommendation-audit-summary my_pipeline
-npm run pipeline -- recommendation-audit-status my_pipeline
-npm run pipeline -- recommendation-audit-status-overview
-npm run pipeline -- recommendation-audit-issues
-npm run pipeline -- recommendation-audit-hotspots
 npm run pipeline -- recommendation-audit-top-hotspots 3 1 TIE-DETECTED,tie-detected
-npm run pipeline -- run my_pipeline fast
-npm run pipeline -- run my_pipeline
 npm run pipeline -- run-stats
 npm run pipeline -- progress
 npm run pipeline -- next-tasks 5
 npm run pipeline -- dashboard 5
-npm run api
 ```
 
-### API 예시
+## 주요 API
+
 - `GET /health`
-- `GET /ui` (그래프 캔버스 UI)
+- `GET /ui`
 - `GET /templates`
-- `GET /run-profiles`
-- `GET /recommend-objectives`
 - `POST /templates/create`
+- `GET /pipelines`
+- `POST /pipelines`
 - `POST /pipelines/validate`
-- `GET /pipelines/:id/validate`
+- `POST /pipelines/:id/run?profile=fast`
 - `GET /pipelines/:id/insights`
 - `GET /pipelines/:id/estimate?profile=resilient`
 - `GET /pipelines/:id/profile-matrix`
 - `GET /pipelines/:id/recommend-profile?objective=speed`
-- `GET /pipelines/:id/recommendation-matrix`
-- `GET /pipelines/recommendation-matrix?pipelineId=my_pipeline`
-- `GET /pipelines/:id/recommendation-snapshot`
-- `GET /pipelines/recommendation-snapshot?pipelineId=my_pipeline`
-- `GET /pipelines/:id/recommendation-consensus`
-- `GET /pipelines/recommendation-consensus?pipelineId=my_pipeline`
-- `GET /pipelines/:id/recommendation-decision-log`
-- `GET /pipelines/recommendation-decision-log?pipelineId=my_pipeline`
 - `GET /pipelines/:id/recommendation-audit`
-- `GET /pipelines/recommendation-audit?pipelineId=my_pipeline`
-- `GET /pipelines/:id/recommendation-audit-summary`
-- `GET /pipelines/recommendation-audit-summary?pipelineId=my_pipeline`
-- `GET /pipelines/:id/recommendation-audit-status`
-- `GET /pipelines/recommendation-audit-status?pipelineId=my_pipeline`
-- `GET /pipelines/recommendation-audit-status-overview`
-- `GET /pipelines/recommendation-audit-issues`
-- `GET /pipelines/recommendation-audit-hotspots`
-- `GET /pipelines/recommendation-audit-top-hotspots?limit=3&minImpactScore=1&includeIssues=TIE-DETECTED,tie-detected`
-- `GET /pipelines/compare?leftId=A&rightId=B`
-- `POST /pipelines/:id/run?profile=fast`
+- `GET /pipelines/recommendation-audit-top-hotspots?limit=3&minImpactScore=1&includeIssues=TIE-DETECTED`
 - `GET /runs`
-- `GET /runs/records`
 - `GET /runs/stats`
 - `GET /progress`
 - `GET /next-tasks?limit=5`
 - `GET /dashboard?limit=5`
 
-실행 시 `reports/`에 리포트가 생성되고, `data/runs/`에 실행 이력이 저장됩니다.
+## 진행 상황
+
+현재 기준으로 `docs/TASKS.md`의 대부분 항목은 `DONE` 상태입니다.
+
+완료된 핵심 흐름:
+
+- 파이프라인 스키마, 검증, 시뮬레이션
+- CLI/API/UI 3가지 실행 표면
+- 실행 이력, 통계, 리포트
+- 진행률/다음 작업/대시보드
+- 실행 프로파일과 추천/감사 계층
+
+아직 남은 방향:
+
+- 실제 SNS OAuth와 발행 API 어댑터 연결
+- 플랫폼별 포맷 정책 구체화
+- 예약 발행과 큐 처리
+- 이미지 리사이즈/압축/ALT 생성용 Media Agent
+- 토큰 암호화 저장과 재인증 UX
+- 팀 승인 워크플로우와 성과 대시보드
+
+## 로드맵
+
+### Phase 0: 파이프라인 운영 기반
+
+- Job/Task 상태 모델
+- 파이프라인 검증/실행/리포트
+- 그래프 기반 운영 UI
+- 현재 구현 대부분 완료
+
+### Phase 1: 텍스트 중심 SNS 발행
+
+- X/Threads 우선 연동
+- 플랫폼별 글자 수, 해시태그, 링크 정책 반영
+- 실패 재시도와 부분 성공 리포트
+
+### Phase 2: 미디어 파이프라인
+
+- Instagram/Facebook 이미지 발행
+- 이미지 리사이즈/압축
+- Media Agent와 Compliance Agent 강화
+
+### Phase 3: 예약/운영 기능
+
+- 예약 발행
+- 알림
+- 실패 복구 워크플로우
+- 운영 지표 대시보드
+
+### Phase 4: 협업과 수익화
+
+- 팀 승인 플로우
+- 브랜드 템플릿
+- Pro/Team 플랜 기능 분리
+
+## 데이터와 산출물
+
+아래 폴더는 실행 중 생성되는 산출물입니다.
+
+- `reports/`
+- `data/pipelines/`
+- `data/runs/`
+- `tmp-test-data/`
+
+이 폴더들은 `.gitignore`에 의해 Git 백업 대상에서 제외됩니다. 필요할 때 `npm run setup`과 CLI/API 실행으로 다시 생성합니다.
+
+## 참고 문서
+
+- [작업 보드](docs/TASKS.md)
+- [기획/사양/개발 계획서](docs/omnipostai_prd_plan_ko.md)
+

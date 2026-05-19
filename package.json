@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "setup": "node setup_env.js",
     "test": "node --test",
     "simulate": "node src/demo.js",
     "pipeline": "node src/cli/pipeline-cli.js",
